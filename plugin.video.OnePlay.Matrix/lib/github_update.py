@@ -8,9 +8,9 @@ try:
 except ImportError:
     from github import *    
 
-update_ver_file = 'https://github.com/zoreu/addons_oneplay/raw/refs/heads/main/plugin.video.OnePlay.MatrixTESTE/update.txt'
-update_list = 'https://github.com/zoreu/addons_oneplay/raw/refs/heads/main/plugin.video.OnePlay.MatrixTESTE/files.json'
-path_update_file = 'special://home/addons/plugin.video.OnePlay.MatrixTESTE/update.txt'
+update_ver_file = 'https://github.com/zoreu/addons_oneplay/raw/refs/heads/main/plugin.video.OnePlay.Matrix/update.txt'
+update_list = 'https://github.com/zoreu/addons_oneplay/raw/refs/heads/main/plugin.video.OnePlay.Matrix/files.json'
+path_update_file = 'special://home/addons/plugin.video.OnePlay.Matrix/update.txt'
 enable_update = True
 
 
