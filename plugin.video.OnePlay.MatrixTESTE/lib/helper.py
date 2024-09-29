@@ -131,6 +131,10 @@ def dialog(msg):
     dialog = xbmcgui.Dialog()
     dialog.ok(addonName, msg)
 
+def dialog2(title, msg):
+    dialog = xbmcgui.Dialog()
+    dialog.ok(title, msg)    
+
 def dialog_text(msg):
     dialog = xbmcgui.Dialog()
     dialog.textviewer(addonName, msg)
