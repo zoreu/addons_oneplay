@@ -19,15 +19,15 @@ enable_update = True
 def list_files():
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:117.0) Gecko/20100101 Firefox/117.0'}
     try:
-        update_list = last_raw(update_list)
-        r = requests.get(update_list,headers=headers)
+        update_list_ = last_raw(update_list)
+        r = requests.get(update_list_,headers=headers)
         if r.status_code == 200:
             files = r.json()
         else:
             files = []
             log('UPDATE: erro ao acessar %s'%update_list)
     except:
-        files = []
+       files = []
     return files
 
 def find_path(url):
@@ -81,5 +81,4 @@ def update():
                         log('UPDATE: url %s nao existe'%url_update_file)
                 except:
                     pass
-
 
