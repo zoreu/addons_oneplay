@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
-from lib.helper import *
 try:
-    from lib.ClientScraper import cfscraper
+    from lib.helper import *
 except ImportError:
-    from ClientScraper import cfscraper
+    from helper import *
+try:
+    from lib.client import cfscraper
+except ImportError:
+    from client import cfscraper
 
 
 def radios_list(API):
