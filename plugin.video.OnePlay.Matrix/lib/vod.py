@@ -21,7 +21,22 @@ except ImportError:
 
 class VOD1:
     def __init__(self,url):
-        self.base = url
+        self.headers = {'User-Agent': USER_AGENT}
+        self.base = self.get_last_base(url)
+        #self.base = url
+
+    def get_last_base(self, url):
+        host_base = url
+        last_url = ''
+        try:
+            r = requests.get(host_base,headers=self.headers,timeout=4)
+            last_url = r.url
+        except:
+            pass     
+
+        if last_url and last_url.endswith('/'):
+            last_url = last_url[:-1]
+        return last_url        
 
     def soup(self,src):
         soup = BeautifulSoup(src,'html.parser')
