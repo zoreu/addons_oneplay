@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 try:
-    from lib.client import cfscraper, USER_AGENT
+    from lib.client import cfscraper
 except ImportError:
-    from client import cfscraper, USER_AGENT
+    from client import cfscraper
 try:
     from lib.helper import *
 except ImportError:
@@ -17,6 +17,63 @@ try:
     from lib import tear
 except ImportError:
     import tear
+import socket
+
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+
+class DNSResolver:
+    def __init__(self, dns_server='1.1.1.1'):
+        self.etc_hosts = {}
+        self.cache_resolve_dns = {}
+        self.DNS_SERVER = dns_server
+
+
+    def resolver(self, builtin_resolver):
+        def wrapper(*args, **kwargs):
+            try:
+                # Tentar resolver com o cache personalizado
+                return self.etc_hosts[args[:2]]
+            except KeyError:
+                # Resolver com o comportamento padrão
+                return builtin_resolver(*args, **kwargs)
+        return wrapper
+
+    def dns_query_custom(self, hostname):
+        query = b'\xaa\xbb\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00' + \
+                b''.join(bytes([len(part)]) + part.encode() for part in hostname.split('.')) + \
+                b'\x00\x00\x01\x00\x01'
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(2)
+        sock.sendto(query, (self.DNS_SERVER, 53))
+        response, _ = sock.recvfrom(512)
+        sock.close()
+        ip_start = response.find(b'\xc0') + 12
+        ip_bytes = response[ip_start:ip_start + 4]
+        ip_address = '.'.join(map(str, ip_bytes))
+        return ip_address
+
+    def _change_dns(self, domain_name, port, ip):
+        key = (domain_name, port)
+        value = (socket.AF_INET, socket.SOCK_STREAM, 6, '', (ip, port))
+        self.etc_hosts[key] = [value]
+
+    def change(self, url):
+        socket.getaddrinfo = self.resolver(socket.getaddrinfo)
+        parsed_url = urlparse(url)
+        port = parsed_url.port or (443 if parsed_url.scheme == 'https' else 80)
+        host = parsed_url.hostname
+        try:
+            ip_address = self.cache_resolve_dns[host]
+        except:
+            try:
+                ip_address = self.dns_query_custom(host)
+            except:
+                ip_address = '127.0.0.1'
+            self.cache_resolve_dns[host] = ip_address
+            
+        self._change_dns(host, port, ip_address)
+
+dnsresolver_ = DNSResolver()    
 
 
 class VOD1:
@@ -29,6 +86,7 @@ class VOD1:
         host_base = url
         last_url = ''
         try:
+            dnsresolver_.change(url)
             r = requests.get(host_base,headers=self.headers,timeout=4)
             last_url = r.url
         except:
@@ -68,8 +126,10 @@ class VOD1:
         if pesquisa:
             url = '%s/?s=%s'%(self.base,quote_plus(pesquisa))           
         try:
-            #headers.update({'Cookie': 'XCRF%3DXCRF'})
-            r = cfscraper.get(url,headers={'Cookie': 'XCRF%3DXCRF'})
+            headers = {'User-Agent': USER_AGENT}
+            headers.update({'Cookie': 'XCRF%3DXCRF'})
+            dnsresolver_.change(url)
+            r = requests.get(url,headers=headers)
             src = r.text
             soup = self.soup(src)
             box = soup.find("div", {"id": "box_movies"})
@@ -133,8 +193,10 @@ class VOD1:
         next_page = False
         page = ''
         try:
-            #headers.update({'Cookie': 'XCRF%3DXCRF'})
-            r = cfscraper.get(url,headers={'Cookie': 'XCRF%3DXCRF'})
+            headers = {'User-Agent': USER_AGENT}
+            headers.update({'Cookie': 'XCRF%3DXCRF'})
+            dnsresolver_.change(url)
+            r = requests.get(url,headers=headers)
             src = r.text
             soup = self.soup(src)
             box = soup.find("div", {"id": "box_movies"})
@@ -193,8 +255,10 @@ class VOD1:
     def opcoes_filmes(self,url):
         opcoes = []      
         try:
-            #headers.update({'Cookie': 'XCRF%3DXCRF'})
-            r = cfscraper.get(url,headers={'Cookie': 'XCRF%3DXCRF'})
+            headers = {'User-Agent': USER_AGENT}
+            headers.update({'Cookie': 'XCRF%3DXCRF'})
+            dnsresolver_.change(url)
+            r = requests.get(url,headers=headers)
             src = r.text
             soup = self.soup(src)
             player = soup.find('div', {'id': 'player-container'})
@@ -234,8 +298,10 @@ class VOD1:
         next_page = False
         page = ''
         try:
-            #headers.update({'Cookie': 'XCRF%3DXCRF'})
-            r = cfscraper.get(url,headers={'Cookie': 'XCRF%3DXCRF'})
+            headers = {'User-Agent': USER_AGENT}
+            headers.update({'Cookie': 'XCRF%3DXCRF'})
+            dnsresolver_.change(url)
+            r = requests.get(url,headers=headers)
             src = r.text
             soup = self.soup(src)
             box = soup.find("div", {"id": "box_movies"})
@@ -292,8 +358,10 @@ class VOD1:
         img = ''
         fanart = ''        
         try:
-            #headers.update({'Cookie': 'XCRF%3DXCRF'})
-            r = cfscraper.get(url, headers={'Cookie': 'XCRF%3DXCRF'})
+            headers = {'User-Agent': USER_AGENT}
+            headers.update({'Cookie': 'XCRF%3DXCRF'})
+            dnsresolver_.change(url)
+            r = requests.get(url, headers=headers)
             src = r.text
             soup = self.soup(src)
             # info
@@ -328,8 +396,10 @@ class VOD1:
         img = ''
         fanart = ''        
         try:
-            #headers.update({'Cookie': 'XCRF%3DXCRF'})
-            r = cfscraper.get(url, headers={'Cookie': 'XCRF%3DXCRF'})
+            headers = {'User-Agent': USER_AGENT}
+            headers.update({'Cookie': 'XCRF%3DXCRF'})
+            dnsresolver_.change(url)
+            r = requests.get(url, headers=headers)
             src = r.text
             soup = self.soup(src)
             # info
@@ -384,7 +454,8 @@ class VOD2:
                 url = '{0}/serie/{1}/{2}/{3}'.format(self.base,imdb,season,episode)
                 parsed_url_r = urlparse(url)
                 r_ = '{uri.scheme}://{uri.netloc}/'.format(uri=parsed_url_r)
-                r = cfscraper.get(url)
+                dnsresolver_.change(url)
+                r = requests.get(url,headers={'User-Agent': USER_AGENT})
                 src = r.text
                 soup = BeautifulSoup(src, 'html.parser')
                 try:
@@ -398,23 +469,26 @@ class VOD2:
                         div = {}
                 data_contentid = div['data-contentid']
                 api = '{0}/api'.format(self.base)
-                r = cfscraper.post(api,data={'action': 'getOptions', 'contentid': data_contentid})
+                dnsresolver_.change(url)
+                r = requests.post(api,headers={'User-Agent': USER_AGENT},data={'action': 'getOptions', 'contentid': data_contentid})
                 src = r.json()
                 id_ = src['data']['options'][0]['ID']
-                r = cfscraper.post(api,data={'action': 'getPlayer', 'video_id': id_})
+                dnsresolver_.change(url)
+                r = requests.post(api,headers={'User-Agent': USER_AGENT},data={'action': 'getPlayer', 'video_id': id_})
                 src = r.json()
                 video_url = src['data']['video_url']
                 video_hash = video_url.split('/')[-1]
                 parsed_url = urlparse(video_url)
                 origin = '{uri.scheme}://{uri.netloc}'.format(uri=parsed_url)
                 player = '{uri.scheme}://{uri.netloc}/player/index.php?data={0}&do=getVideo'.format(video_hash, uri=parsed_url)
-                r = cfscraper.get(video_url, headers={'Referer': self.base + '/'})
+                dnsresolver_.change(url)
+                r = requests.get(video_url, headers={'User-Agent': USER_AGENT, 'Referer': self.base + '/'})
                 cookies_dict = r.cookies.get_dict()
-                r = cfscraper.post(player,headers={'Origin': origin, 'x-requested-with': 'XMLHttpRequest'}, data={'hash': str(video_hash), 'r': r_}, cookies=cookies_dict)
+                r = requests.post(player,headers={'User-Agent': USER_AGENT, 'Origin': origin, 'x-requested-with': 'XMLHttpRequest'}, data={'hash': str(video_hash), 'r': r_}, cookies=cookies_dict)
                 src = r.json()
                 stream = src['videoSource'] + '|User-Agent=' + quote_plus(USER_AGENT)
         except:
-            pass
+            pass       
         return stream
     
     def movie(self,imdb):
@@ -424,20 +498,23 @@ class VOD2:
                 url = '{0}/filme/{1}'.format(self.base,imdb)
                 parsed_url_r = urlparse(url)
                 r_ = '{uri.scheme}://{uri.netloc}/'.format(uri=parsed_url_r)
-                r = cfscraper.get(url)
+                dnsresolver_.change(url)
+                r = requests.get(url,headers={'User-Agent': USER_AGENT})
                 src = r.text
                 soup = BeautifulSoup(src, 'html.parser')
                 div = soup.find('div',{'class': 'players_select'}) # dublado
                 data_id = div.find('div', {'class': 'player_select_item'}).get('data-id', '')
                 api = '{0}/api'.format(self.base)
-                r = cfscraper.post(api,data={'action': 'getPlayer', 'video_id': data_id})
+                dnsresolver_.change(url)
+                r = requests.post(api,headers={'User-Agent': USER_AGENT},data={'action': 'getPlayer', 'video_id': data_id})
                 src = r.json()
                 video_url = src['data']['video_url']
                 video_hash = video_url.split('/')[-1]
                 parsed_url = urlparse(video_url)
                 origin = '{uri.scheme}://{uri.netloc}'.format(uri=parsed_url)
                 player = '{uri.scheme}://{uri.netloc}/player/index.php?data={0}&do=getVideo'.format(video_hash, uri=parsed_url)
-                r = cfscraper.get(video_url, headers={'Referer': self.base + '/'})
+                dnsresolver_.change(url)
+                r = requests.get(video_url, headers={'User-Agent': USER_AGENT,'Referer': self.base + '/'})
                 cookies_dict = r.cookies.get_dict()
                 r = cfscraper.post(player,headers={'Origin': origin, 'x-requested-with': 'XMLHttpRequest'}, data={'hash': str(video_hash), 'r': r_}, cookies=cookies_dict)
                 src = r.json()

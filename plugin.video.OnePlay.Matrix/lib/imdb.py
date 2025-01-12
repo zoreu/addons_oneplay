@@ -151,12 +151,19 @@ class IMDBScraper:
             imdb_id = re.findall(r'/tt(.*?)/', url)[0]
             imdb_id = 'tt' + imdb_id
             season_base_url = self.base + '/title/' + imdb_id + '/episodes/?season='
-            for idx, season in enumerate(seasons, start=1):
-                name = 'Temporada {0}'.format(str(idx))
-                url_season = season_base_url + str(idx)
-                itens.append((str(season['number']), name, url_season))
+            # for idx, season in enumerate(seasons, start=1):
+            #     name = 'Temporada {0}'.format(str(idx))
+            #     url_season = season_base_url + str(idx)
+            #     itens.append((str(season['number']), name, url_season))
+            for season in seasons:
+                season_number = season.get('number', 0) 
+                name = 'Temporada {0}'.format(str(season_number))
+                url_season = season_base_url + str(season_number)
+                itens.append((str(season_number), name, url_season))            
         except:
             pass
+        if itens:
+            itens = itens[::-1]
         return itens
 
     def imdb_episodes(self,url):

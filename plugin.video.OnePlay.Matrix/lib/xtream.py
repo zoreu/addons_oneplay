@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-try:
-    from lib.client import cfscraper
-except ImportError:
-    from client import cfscraper
+# try:
+#     from lib.client import cfscraper
+# except ImportError:
+#     from client import cfscraper
 import xml.dom.minidom
 import base64
 try:
@@ -11,6 +11,74 @@ except:
     from helper import *
 import re
 from datetime import datetime
+import socket
+# try: 
+#     # Python 3 
+#     from urllib.parse import urlparse, parse_qs 
+# except ImportError: 
+#     # Python 2 
+#     from urlparse import urlparse, parse_qs
+
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+
+class DNSResolver:
+    def __init__(self, dns_server='1.1.1.1'):
+        self.etc_hosts = {}
+        self.cache_resolve_dns = {}
+        self.DNS_SERVER = dns_server
+
+
+    def resolver(self, builtin_resolver):
+        def wrapper(*args, **kwargs):
+            try:
+                # Tentar resolver com o cache personalizado
+                return self.etc_hosts[args[:2]]
+            except KeyError:
+                # Resolver com o comportamento padrão
+                return builtin_resolver(*args, **kwargs)
+        return wrapper
+
+    def dns_query_custom(self, hostname):
+        query = b'\xaa\xbb\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00' + \
+                b''.join(bytes([len(part)]) + part.encode() for part in hostname.split('.')) + \
+                b'\x00\x00\x01\x00\x01'
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(2)
+        sock.sendto(query, (self.DNS_SERVER, 53))
+        response, _ = sock.recvfrom(512)
+        sock.close()
+        ip_start = response.find(b'\xc0') + 12
+        ip_bytes = response[ip_start:ip_start + 4]
+        ip_address = '.'.join(map(str, ip_bytes))
+        return ip_address
+
+    def _change_dns(self, domain_name, port, ip):
+        key = (domain_name, port)
+        value = (socket.AF_INET, socket.SOCK_STREAM, 6, '', (ip, port))
+        self.etc_hosts[key] = [value]
+
+    def change(self, url):
+        socket.getaddrinfo = self.resolver(socket.getaddrinfo)
+        parsed_url = urlparse(url)
+        port = parsed_url.port or (443 if parsed_url.scheme == 'https' else 80)
+        host = parsed_url.hostname
+        try:
+            ip_address = self.cache_resolve_dns[host]
+        except:
+            try:
+                ip_address = self.dns_query_custom(host)
+            except:
+                ip_address = '127.0.0.1'
+            self.cache_resolve_dns[host] = ip_address
+            
+        self._change_dns(host, port, ip_address)
+
+dnsresolver_ = DNSResolver()
+
+def cliente(url):
+    dnsresolver_.change(url)
+    return requests.get(url,headers={'User-Agent': USER_AGENT})
+
 
 
 def extract_info(url):
@@ -37,15 +105,15 @@ def extract_info(url):
 def parselist(url):
     iptv = []
     try:
-        url = cfscraper.get(url).json()['url']
+        url = requests.get(url).json()['url']
     except:
-        pass
+        pass      
     try:
         if 'paste.kodi.tv' in url and not 'documents' in url and not 'raw' in url:
             try:
                 key = url.split('/')[-1]
                 url = 'https://paste.kodi.tv/documents/' + key
-                src = cfscraper.get(url).json()['data']
+                src = requests.get(url).json()['data']
                 lines = src.split('\n')
                 if lines:
                     for i in lines:
@@ -55,8 +123,18 @@ def parselist(url):
                             iptv.append((dns,username,password))
             except:
                 pass
+            key = url.split('/')[-1]
+            url = 'https://paste.kodi.tv/documents/' + key
+            src = requests.get(url).json()['data']
+            lines = src.split('\n')
+            if lines:
+                for i in lines:
+                    i = i.replace(' ', '')
+                    if 'http' in i:
+                        dns, username, password = extract_info(i)
+                        iptv.append((dns,username,password))            
         else:
-            src = cfscraper.get(url).text
+            src = requests.get(url).text
             lines = src.split('\n')
             if lines:
                 for i in lines:
@@ -146,22 +224,22 @@ class API:
     def http(self, url='', mode=None):
         if not mode:
             try:
-                return cfscraper.get(url).content    
+                return cliente(url).content    
             except:
                 pass
         elif mode == 'channels_category':
             try:
-                return cfscraper.get(self.live_url).content
+                return cliente(self.live_url).content
             except:
                 pass
         elif mode == 'json_url':
             try:
-                return cfscraper.get(url).json()
+                return cliente(url).json()
             except:
                 pass
         elif mode == 'vod':
             try:
-                return cfscraper.get(url).text
+                return cliente(url).text
             except:
                 pass
         return ''
